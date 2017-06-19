@@ -22,12 +22,25 @@
 #define PETIT 1
 #define MOYEN 2
 #define GROS  3
+#define GROS  3
+
+typedef struct ColisStruct
+{
+    int type;
+    int clientID;
+    bool livre;
+}ColisStruct;
+
+typedef ColisStruct* Colis;
+
 
 typedef struct Vaisseau
 {
     int nbPetitColis;
     int nbMoyenColis;
     int nbGrosColis;
+    
+    Colis colis;
 
 
     pthread_t drone_petit[NB_DRONE_PETIT];    
@@ -35,17 +48,9 @@ typedef struct Vaisseau
     pthread_t drone_gros[NB_DRONE_GROS];   
     
     pthread_cond_t condition_drone;
-    pthread_mutex_t mutex_drone; 
+    pthread_cond_t condition_client;
+    pthread_mutex_t mutex; 
 }Vaisseau;
-
-static Vaisseau vaisseau =
-{
-   .nbPetitColis = 10,
-   .nbMoyenColis = 6,
-   .nbGrosColis = 4,
-   .mutex_drone = PTHREAD_MUTEX_INITIALIZER,
-   .condition_drone = PTHREAD_COND_INITIALIZER,
-};
 
 typedef struct DroneStruct
 {
@@ -58,18 +63,15 @@ typedef struct DroneStruct
 
 typedef DroneStruct* Drone;
 
-typedef struct ColisStruct
-{
-    int type;
-    int numClient;
-    bool livre;
-}ColisStruct;
-
-typedef ColisStruct* Colis;
-
 void erreur(const char*);
 void *fonc_droneP(void*);
+// void *fonc_droneM(void*);
+// void *fonc_droneG(void*);
 Drone createDrone(int);
 void createDroneThread(pthread_t*, int, int);
+Colis createColis(int, int);
+void recharger(Drone d, time_t* oldTime);
+
+void *fonc_client(void*);
 
 #endif
