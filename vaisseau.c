@@ -29,7 +29,7 @@ int main()
     {
         createClientThread(client[i], i);
         printf("\n");
-        sleep(1);
+        usleep(500*IN_MILLISECONDS);
     }
         
     
@@ -199,7 +199,7 @@ void *fonc_client(void *arg)
         else
         {
             printf("Client non livré.\n");
-            sleep(1);
+            sleep(3);
         }
            
         
@@ -305,8 +305,8 @@ void recharger(Drone d, time_t *oldTime)
     }
     
     printf("recharge = %f / autonomie = %f \n", recharge, d->autonomie);
-    if((recharge*10 + d->autonomie) >= maxAutonomie)
+    if((recharge + d->autonomie) >= maxAutonomie)
         d->autonomie = maxAutonomie;
     else
-        d->autonomie += recharge*10;
+        d->autonomie += recharge;
 }
