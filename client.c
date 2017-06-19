@@ -1,10 +1,16 @@
 #include "client.h"
+
+static Ville ville =
+{
+   .mutex_client = PTHREAD_MUTEX_INITIALIZER,
+   .condition_client = PTHREAD_COND_INITIALIZER,
+};
+
     
 void *fonc_client(void *arg) 
 {
     int clientID = (int)arg + 1;
-    // int msgid;
-    Client c = createClient();
+    Client c = createClient(clientID);
     
     pthread_mutex_lock(&ville.mutex_client);
     
@@ -12,11 +18,6 @@ void *fonc_client(void *arg)
     {
        
         pthread_cond_signal (&vaisseau.condition_drone);
-        /*if ((msgid = msgget(CLE, 0)) == -1) 
-            erreur("Ereur msgget Client\n");
-        
-        if (msgsnd(msgid, &c, sizeof(Client), 0) == -1) 
-            perror("Erreur de l'envoi du message\n");*/
 
         printf("Client %d  => couvert : %d / jardin : %d / present : %d / tempsTrajet : %d minutes / colis : %d\n", clientID, c->couvert, c->jardin, c->present, c->tempsTrajet, c->colis);
         
@@ -25,15 +26,16 @@ void *fonc_client(void *arg)
     pthread_mutex_unlock(&ville.mutex_client);
     
     pthread_exit(NULL);
-} 
+}
 
 
-Client createClient()
+Client createClient(int i)
 {
     Client c = malloc(sizeof(Client));
     
     if(c != NULL)
     {
+        c->clientID = i;
         c->couvert = pileOuface();
         c->jardin = pileOuface();
         c->present = pileOuface();
@@ -42,7 +44,8 @@ Client createClient()
     }
     else
         erreur("Erreur création Drone\n");
-
+    
+    printf("Client %d  => couvert : %d / jardin : %d / present : %d / tempsTrajet : %d minutes / colis : %d\n", c->clientID, c->couvert, c->jardin, c->present, c->tempsTrajet, c->colis);
     return c;
 }
 
