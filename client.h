@@ -13,7 +13,7 @@
 
 #include "vaisseau.h"
 
-#define NB_CLIENTS 15
+#define NB_CLIENTS 10
 
 typedef struct ClientStruct
 {
@@ -30,18 +30,11 @@ typedef ClientStruct* Client;
 
 Client clients[NB_CLIENTS]; 
 
-typedef struct Ville
-{
-    pthread_t client[NB_CLIENTS];  
+pthread_t client[NB_CLIENTS];
     
-    pthread_cond_t condition_client;
-    pthread_mutex_t mutex_client; 
-}Ville;
 
-
-void *fonc_client(void*);
 Client createClient(int);
 void createClientThread(pthread_t, int);
-bool pileOuface();
+bool alea();
 
 #endif
