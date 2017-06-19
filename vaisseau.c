@@ -1,5 +1,6 @@
 #include "vaisseau.h"
 
+
 void erreur(const char *msg)
 {
     perror(msg);
@@ -9,22 +10,14 @@ void erreur(const char *msg)
 int main()
 {   
     int i;
-    // int msgid;
     srand(time(NULL));
     
-    /*if ((msgid = msgget(CLE, IPC_CREAT | IPC_EXCL | 0600)) == -1)
-		erreur("Erreur creation file de messages");*/
-    
     for(i=0; i< NB_CLIENTS; i++)
-        createClientThread(ville.client[i], i);
+        clients[i] = createClient(i);
     
     createDroneThread(vaisseau.drone_petit, NB_DRONE_PETIT, PETIT);
     // createDroneThread(vaisseau.drone_moyen, NB_DRONE_MOYEN, MOYEN);
     // createDroneThread(vaisseau.drone_gros, NB_DRONE_GROS, GROS);
-    
-    
-    /*if(msgctl(msgid, IPC_RMID, 0) == -1)
-		erreur("Erreur suppresion de la file de messages\n");*/
     
     exit(EXIT_SUCCESS);
 }
@@ -33,9 +26,8 @@ int main()
 void *fonc_droneP(void *arg) 
 {
     int type = (int)arg;
-    // int msgid;
     Drone d = createDrone(type);
-    Client c;
+    
     
     while(1)
     {
@@ -45,15 +37,8 @@ void *fonc_droneP(void *arg)
         {
             pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex_drone);
         }
-        
-        /*if ((msgid = msgget(CLE, 0)) == -1) 
-            erreur("Ereur msgget Drone\n");
-        
-        if (msgrcv(msgid, &c, sizeof(Client), 1, 0) == -1)
-            perror("Erreur de lecture requete \n");*/
 
         vaisseau.nbPetitColis--;
-        //d->autonomie -= c->tempsTrajet*2;
 		d->autonomie -= 40;
         printf("ID : %lu / Type : %d / Autonomie : %.1fh / Temps de recharge : %.1fh.\n", pthread_self(), type, d->autonomie, d->tempsRecharge);
         printf("Colis restant : %d\n", vaisseau.nbPetitColis);
