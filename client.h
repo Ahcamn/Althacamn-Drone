@@ -15,23 +15,9 @@
 
 #define NB_CLIENTS 15
 
-typedef struct Ville
-{
-    pthread_t client[NB_CLIENTS];  
-    
-    pthread_cond_t condition_client;
-    pthread_mutex_t mutex_client; 
-}Ville;
-
-static Ville ville =
-{
-   .mutex_client = PTHREAD_MUTEX_INITIALIZER,
-   .condition_client = PTHREAD_COND_INITIALIZER,
-};
-
-
 typedef struct ClientStruct
 {
+    int clientID;
     bool couvert;
     bool jardin;
     bool present;
@@ -42,9 +28,19 @@ typedef struct ClientStruct
 
 typedef ClientStruct* Client;
 
+Client clients[NB_CLIENTS]; 
+
+typedef struct Ville
+{
+    pthread_t client[NB_CLIENTS];  
+    
+    pthread_cond_t condition_client;
+    pthread_mutex_t mutex_client; 
+}Ville;
+
 
 void *fonc_client(void*);
-Client createClient();
+Client createClient(int);
 void createClientThread(pthread_t, int);
 bool pileOuface();
 
