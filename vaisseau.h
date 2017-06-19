@@ -15,8 +15,6 @@
 
 #include "client.h"
 
-#define CLE 314
-
 #define NB_DRONE_PETIT 6
 #define NB_DRONE_MOYEN 4
 #define NB_DRONE_GROS  2
@@ -40,7 +38,6 @@ typedef struct Vaisseau
     pthread_mutex_t mutex_drone; 
 }Vaisseau;
 
-
 static Vaisseau vaisseau =
 {
    .nbPetitColis = 10,
@@ -49,7 +46,6 @@ static Vaisseau vaisseau =
    .mutex_drone = PTHREAD_MUTEX_INITIALIZER,
    .condition_drone = PTHREAD_COND_INITIALIZER,
 };
-
 
 typedef struct DroneStruct
 {
@@ -66,6 +62,7 @@ typedef struct ColisStruct
 {
     int type;
     int numClient;
+    bool livre;
 }ColisStruct;
 
 typedef ColisStruct* Colis;
