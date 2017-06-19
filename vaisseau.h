@@ -22,7 +22,7 @@
 #define PETIT 1
 #define MOYEN 2
 #define GROS  3
-#define GROS  3
+#define IN_MILLISECONDS 1000
 
 typedef struct ColisStruct
 {
