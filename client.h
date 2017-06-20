@@ -13,7 +13,15 @@
 
 #include "vaisseau.h"
 
-#define NB_CLIENTS 10
+#define NB_CLIENTS 15
+
+typedef struct OrderStruct
+{
+    int type;
+    bool livre;
+}OrderStruct;
+
+typedef OrderStruct* Order;
 
 typedef struct ClientStruct
 {
@@ -21,9 +29,10 @@ typedef struct ClientStruct
     bool couvert;
     bool jardin;
     bool present;
+    bool satisfait;
     int tempsTrajet;
     // int meteo;
-    int colis;
+    Order order;
 }ClientStruct;
 
 typedef ClientStruct* Client;
@@ -31,10 +40,10 @@ typedef ClientStruct* Client;
 Client clients[NB_CLIENTS]; 
 
 pthread_t client[NB_CLIENTS];
-    
-
-Client createClient(int);
+ 
 void createClientThread(pthread_t, int);
+Client createClient(int);
+Order createOrder();
 bool alea();
 
 #endif
