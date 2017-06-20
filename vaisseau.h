@@ -24,25 +24,15 @@
 #define GROS  3
 #define IN_MILLISECONDS 1000
 
-typedef struct ColisStruct
-{
-    int type;
-    int clientID;
-    bool livre;
-}ColisStruct;
-
-typedef ColisStruct* Colis;
-
-
 typedef struct Vaisseau
 {
     int nbPetitColis;
     int nbMoyenColis;
     int nbGrosColis;
     
-    Colis colis;
-
-
+    int tempClientID;
+    int clientsLivres;
+    
     pthread_t drone_petit[NB_DRONE_PETIT];    
     pthread_t drone_moyen[NB_DRONE_MOYEN];    
     pthread_t drone_gros[NB_DRONE_GROS];   
@@ -64,14 +54,13 @@ typedef struct DroneStruct
 typedef DroneStruct* Drone;
 
 void erreur(const char*);
+void *fonc_client(void*); 
 void *fonc_droneP(void*);
 // void *fonc_droneM(void*);
 // void *fonc_droneG(void*);
 Drone createDrone(int);
 void createDroneThread(pthread_t*, int, int);
-Colis createColis(int, int);
-void recharger(Drone d, time_t* oldTime);
+float recharger(float , int, time_t*);
 
-void *fonc_client(void*);
 
 #endif
