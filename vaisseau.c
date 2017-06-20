@@ -22,6 +22,7 @@ void erreur(const char *msg)
 int main()
 {   
     int i;
+    meteo = generationMeteo();
     srand(time(NULL));
             
     createDroneThread(vaisseau.drone_petit, NB_DRONE_PETIT, PETIT);
@@ -31,10 +32,15 @@ int main()
     for(i=0; i < NB_CLIENTS; i++)
     {
         createClientThread(client[i], i);
-        // usleep(500*IN_MILLISECONDS);
+        usleep(500*IN_MILLISECONDS);
+    }
+    
+    while(vaisseau.clientsLivres != NB_CLIENTS)
+    {
+        meteo = generationMeteo();
+        sleep(3);
     }
         
-    
     for(i=0; i < NB_DRONE_PETIT; i++)
        if(pthread_join(vaisseau.drone_petit[i], NULL))
             erreur("Erreur pthread_join Drone\n");
@@ -72,11 +78,14 @@ void *fonc_client(void *arg)
     
     while(livrable && c->satisfait && !finLivraison)
     {
+        /* DEBUT section critique */
         pthread_mutex_lock(&vaisseau.mutex);
         
         vaisseau.tempClientID = clientID;
         
+        /* Reveil du Drone */
         pthread_cond_signal(&vaisseau.condition_drone);
+        /* Client mis en attente */
         pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
                 
         if(c->present)
@@ -85,7 +94,11 @@ void *fonc_client(void *arg)
             {
                 printf("Client %d livré.\n\n", clientID);
                 finLivraison = true;
-            }  
+            }
+            else if(!c->satisfait)
+            {
+                printf("\t\t\t\t\t\tClient %d non satisfait : retour colis\n\n", clientID);
+            }
             else
             {
                 printf("\t\t\tClient %d en attente.\n\n", clientID);
@@ -98,13 +111,14 @@ void *fonc_client(void *arg)
             livrable = false;
         }
 
+        /* FIN section critique */
         pthread_mutex_unlock(&vaisseau.mutex);
     }
     
     vaisseau.clientsLivres++;
     if(vaisseau.clientsLivres == NB_CLIENTS)
-        printf("Tous les clients ont été livrés !\n");
-    
+        printf("Tous les clients livrables ont été livrés !\n");
+   
     pthread_exit(NULL);
 }
 
@@ -122,29 +136,45 @@ void *fonc_droneP(void *arg)
     
     while(1)
     {
-        pthread_mutex_lock(&vaisseau.mutex);        
+        /* DEBUT section critique */
+        pthread_mutex_lock(&vaisseau.mutex);
+        
+        /* Drone mis en attente */
         pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
         
         d->autonomie = recharger(d->autonomie, d->type, &oldTime);
-        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f\n", droneID, vaisseau.tempClientID, d->autonomie);
+        
         
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
         
-        if(d->autonomie >= c->tempsTrajet)
-        {                    
-            vaisseau.nbPetitColis--;
-            c->order->livre = true;
-            d->autonomie -= c->tempsTrajet;
-            
-            // printf("Drone %d livre Client %d / Autonomie restante : %.1f minutes\n", droneID, c->clientID, d->autonomie); 
-        }
-       /* else
+        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f / trajet : %d\n", droneID, clientID, d->autonomie, c->tempsTrajet);
+         
+        if(meteo->temps_praticable && meteo->vent <= 60)
         {
-            printf("Drone %d manque d'autonomie / %.1f < %d mns.\n", droneID, d->autonomie, c->tempsTrajet);
-        }*/
+            if(d->autonomie >= c->tempsTrajet)
+            {              
+                if(c->satisfait = alea())
+                {
+                    vaisseau.nbPetitColis--;
+                    // printf("Client %d livraison du drone\n",clientID);
+                    c->order->livre = true;
+                }
+                
+                d->autonomie -= c->tempsTrajet;
+                
+                // printf("Drone %d livre Client %d / Autonomie restante : %.1f minutes\n", droneID, c->clientID, d->autonomie); 
+            }
+            /*else
+                printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
+        }
+        else
+            printf("\t\t\tMétéo défavorable, le drone ne part pas.\n");
         
+        
+        /* Réveil du client */
         pthread_cond_signal(&vaisseau.condition_client);
+        /* FIN section critique */
         pthread_mutex_unlock(&vaisseau.mutex);   
     }   
           
@@ -334,4 +364,34 @@ float recharger(float autonomie, int type, time_t *oldTime)
         newAutonomie += recharge*2;
     
     return newAutonomie;
+}
+
+Meteo generationMeteo()
+{
+    Meteo meteo = malloc(sizeof(Meteo));
+    if((rand()%10 + 1) == 1) 
+        meteo->temps_praticable = false;
+    else 
+        meteo->temps_praticable = true;
+    
+    switch(rand()%5+1)
+    {
+        case 1:
+        meteo->vent = rand()%20 + 1;
+        break;
+        case 2:
+        meteo->vent = rand()%30 + 20;
+        break;
+        case 3:
+        meteo->vent = rand()%40 + 30;
+        break;
+        case 4:
+        meteo->vent = rand()%65 + 40;
+        break;
+        case 5:
+        meteo->vent = rand()%100 + 65;
+        break;
+    }
+    
+    return meteo;
 }
