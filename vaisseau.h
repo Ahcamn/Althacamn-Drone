@@ -53,6 +53,16 @@ typedef struct DroneStruct
 
 typedef DroneStruct* Drone;
 
+typedef struct MeteoStruct
+{
+ bool temps_praticable;
+ int vent;
+}MeteoStruct;
+
+typedef MeteoStruct* Meteo;
+
+Meteo meteo;
+
 void erreur(const char*);
 void *fonc_client(void*); 
 void *fonc_droneP(void*);
@@ -61,6 +71,7 @@ void *fonc_droneP(void*);
 Drone createDrone(int);
 void createDroneThread(pthread_t*, int, int);
 float recharger(float , int, time_t*);
+Meteo generationMeteo();
 
 
 #endif
