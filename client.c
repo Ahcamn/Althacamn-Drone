@@ -1,5 +1,10 @@
 #include "client.h"
 
+void createClientThread(pthread_t client, int i)
+{
+    if(pthread_create(&client, NULL, fonc_client, (void*)i))
+        erreur("Erreur création thread Client\n");
+}
     
 Client createClient(int i)
 {
@@ -11,9 +16,9 @@ Client createClient(int i)
         c->couvert = alea();
         c->jardin = alea();
         c->present = alea();
+        c->satisfait = true;
         c->tempsTrajet = rand()%21 + 10;
-        // c->tempsTrajet = 30;
-        c->colis = rand()%3 + 1;
+        c->order = createOrder();
     }
     else
         erreur("Erreur création Drone\n");
@@ -21,10 +26,19 @@ Client createClient(int i)
     return c;
 }
 
-void createClientThread(pthread_t client, int i)
+Order createOrder()
 {
-    if(pthread_create(&client, NULL, fonc_client, (void*)i))
-        erreur("Erreur création thread Client\n");
+    Order order = malloc(sizeof(Order));
+    
+    if(order != NULL)
+    {
+        order->type = rand()%3 + 1;;
+        order->livre = false;
+    }
+    else
+        erreur("Erreur création Commande\n");
+
+    return order;
 }
 
 bool alea()
