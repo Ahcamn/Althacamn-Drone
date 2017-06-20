@@ -1,10 +1,13 @@
 #include "vaisseau.h"
 
-static Vaisseau vaisseau =
+Vaisseau vaisseau =
 {
    .nbPetitColis = 0,
    .nbMoyenColis = 0,
    .nbGrosColis = 0,
+   
+   .tempClientID = 0,
+   .clientsLivres = 0,
    .mutex = PTHREAD_MUTEX_INITIALIZER,
    .condition_drone = PTHREAD_COND_INITIALIZER,
    .condition_client = PTHREAD_COND_INITIALIZER,
@@ -28,8 +31,7 @@ int main()
     for(i=0; i < NB_CLIENTS; i++)
     {
         createClientThread(client[i], i);
-        printf("\n");
-        usleep(500*IN_MILLISECONDS);
+        // usleep(500*IN_MILLISECONDS);
     }
         
     
@@ -45,12 +47,77 @@ int main()
 }
 
 
+
+void *fonc_client(void *arg) 
+{
+    int clientID = (int)arg;
+    clients[clientID] = createClient(clientID);
+    Client c = clients[clientID];
+
+    bool finLivraison = false;
+    bool livrable = false;
+    
+    
+    if(c->couvert && c->jardin && c->tempsTrajet <= 30)
+    {
+        // printf("Client %d éligible / tempsTrajet : %d minutes / colis : %d\n", clientID, c->tempsTrajet, c->order->type);
+        livrable = true;
+        pthread_mutex_lock(&vaisseau.mutex);
+        vaisseau.nbPetitColis++;
+        pthread_mutex_unlock(&vaisseau.mutex);
+    }   
+    else
+        printf("\t\t\t\t\t\tClient %d non éligible.\n\n", clientID);
+    
+    
+    while(livrable && c->satisfait && !finLivraison)
+    {
+        pthread_mutex_lock(&vaisseau.mutex);
+        
+        vaisseau.tempClientID = clientID;
+        
+        pthread_cond_signal(&vaisseau.condition_drone);
+        pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
+                
+        if(c->present)
+        {            
+            if(c->order->livre)
+            {
+                printf("Client %d livré.\n\n", clientID);
+                finLivraison = true;
+            }  
+            else
+            {
+                printf("\t\t\tClient %d en attente.\n\n", clientID);
+                sleep(1);
+            }
+        }
+        else
+        {
+            printf("\t\t\t\t\t\tClient %d absent.\n\n", clientID);
+            livrable = false;
+        }
+
+        pthread_mutex_unlock(&vaisseau.mutex);
+    }
+    
+    vaisseau.clientsLivres++;
+    if(vaisseau.clientsLivres == NB_CLIENTS)
+        printf("Tous les clients ont été livrés !\n");
+    
+    pthread_exit(NULL);
+}
+
+
 void *fonc_droneP(void *arg) 
 {
-    int type = (int)arg;
+    int type = PETIT;
+    int droneID = (int)arg;
+    int clientID;
     time_t oldTime;
     time(&oldTime);
     Drone d = createDrone(type);
+    Client c;
     
     
     while(1)
@@ -58,33 +125,27 @@ void *fonc_droneP(void *arg)
         pthread_mutex_lock(&vaisseau.mutex);        
         pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
         
-        recharger(d, &oldTime);
-        printf("Drone reveillé (Petit) -> ");
+        d->autonomie = recharger(d->autonomie, d->type, &oldTime);
+        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f\n", droneID, vaisseau.tempClientID, d->autonomie);
         
-        Colis colis = vaisseau.colis;
-        Client c = clients[colis->clientID];
+        clientID = vaisseau.tempClientID;
+        c = clients[clientID];
         
-        pthread_mutex_unlock(&vaisseau.mutex);
-        
-        if(d->autonomie <= 0 || d->autonomie < c->tempsTrajet)
-        {
-            printf("Drone déchargé.\n");
-            pthread_cond_signal(&vaisseau.condition_client);
-            // printf("autonomie = %f / ID : %lu\n", d->autonomie, pthread_self());
-        }
-        else
-        {
-            pthread_mutex_lock(&vaisseau.mutex);
-            // printf("Drone livre colis.\n");
-        
+        if(d->autonomie >= c->tempsTrajet)
+        {                    
             vaisseau.nbPetitColis--;
-            colis->livre = true;
+            c->order->livre = true;
             d->autonomie -= c->tempsTrajet;
             
-            printf("ID : %lu / Type : %d / Autonomie : %.1f minutes / Temps de recharge : %.1f minutes.\n", pthread_self(), type, d->autonomie, d->tempsRecharge);
-            pthread_cond_signal(&vaisseau.condition_client);
-            pthread_mutex_unlock(&vaisseau.mutex);
+            // printf("Drone %d livre Client %d / Autonomie restante : %.1f minutes\n", droneID, c->clientID, d->autonomie); 
         }
+       /* else
+        {
+            printf("Drone %d manque d'autonomie / %.1f < %d mns.\n", droneID, d->autonomie, c->tempsTrajet);
+        }*/
+        
+        pthread_cond_signal(&vaisseau.condition_client);
+        pthread_mutex_unlock(&vaisseau.mutex);   
     }   
           
     pthread_exit(NULL);
@@ -93,32 +154,45 @@ void *fonc_droneP(void *arg)
 
 /*void *fonc_droneM(void *arg) 
 {
-    int type = (int)arg;
+     int type = PETIT;
+    int droneID = (int)arg;
+    time_t oldTime;
+    time(&oldTime);
     Drone d = createDrone(type);
+    Client c;
+    Order order;
     
     
     while(1)
     {
         pthread_mutex_lock(&vaisseau.mutex);        
         pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
-        printf("Drone reveillé (Moyen) -> ");
         
-        if(d->autonomie <= 0)
-        {
-            printf("Drone déchargé.\n");
-            pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
-        }
-
-        printf("Drone livre colis.\n");
-        Colis colis = vaisseau.colis;
-        Client c = clients[colis->clientID];
-        vaisseau.nbPetitColis--;
-		d->autonomie -= c->tempsTrajet;
-
-        printf("ID : %lu / Type : %d / Autonomie : %.1f minutes / Temps de recharge : %.1f minutes.\n", pthread_self(), type, d->autonomie, d->tempsRecharge);
-        printf("Colis restant : %d\n", vaisseau.nbPetitColis);
-        pthread_cond_signal(&vaisseau.condition_client);
+        d->autonomie = recharger(d->autonomie, d->type, &oldTime);
+        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f\n", droneID, vaisseau.tempClientID, d->autonomie);
+        
+        c = clients[vaisseau.tempClientID];
+        order = c->order;
+        
         pthread_mutex_unlock(&vaisseau.mutex);
+        
+        if(d->autonomie < c->tempsTrajet)
+        {
+            // printf("Drone %d manque d'autonomie / %.1f < %d mns.\n", droneID, d->autonomie, c->tempsTrajet);
+            pthread_cond_signal(&vaisseau.condition_client);
+        }
+        else
+        {
+            pthread_mutex_lock(&vaisseau.mutex);
+        
+            vaisseau.nbPetitColis--;
+            order->livre = true;
+            d->autonomie -= c->tempsTrajet;
+            
+            // printf("Drone %d livre Client %d / Autonomie restante : %.1f minutes\n", droneID, c->clientID, d->autonomie);
+            pthread_cond_signal(&vaisseau.condition_client);
+            pthread_mutex_unlock(&vaisseau.mutex);
+        }
     }   
           
     pthread_exit(NULL);
@@ -126,90 +200,51 @@ void *fonc_droneP(void *arg)
 
 void *fonc_droneG(void *arg) 
 {
-    int type = (int)arg;
+     int type = PETIT;
+    int droneID = (int)arg;
+    time_t oldTime;
+    time(&oldTime);
     Drone d = createDrone(type);
+    Client c;
+    Order order;
     
     
     while(1)
     {
         pthread_mutex_lock(&vaisseau.mutex);        
         pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
-        printf("Drone reveillé (Gros) -> ");
         
-        if(d->autonomie <= 0)
-        {
-            printf("Drone déchargé.\n");
-            pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
-        }
-
-        printf("Drone livre colis.\n");
-        Colis colis = vaisseau.colis;
-        Client c = clients[colis->clientID];
-        vaisseau.nbPetitColis--;
-		d->autonomie -= c->tempsTrajet;
-
-        printf("ID : %lu / Type : %d / Autonomie : %.1f minutes / Temps de recharge : %.1f minutes.\n", pthread_self(), type, d->autonomie, d->tempsRecharge);
-        printf("Colis restant : %d\n", vaisseau.nbPetitColis);
-        pthread_cond_signal(&vaisseau.condition_client);
+        d->autonomie = recharger(d->autonomie, d->type, &oldTime);
+        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f\n", droneID, vaisseau.tempClientID, d->autonomie);
+        
+        c = clients[vaisseau.tempClientID];
+        order = c->order;
+        
         pthread_mutex_unlock(&vaisseau.mutex);
+        
+        if(d->autonomie < c->tempsTrajet)
+        {
+            // printf("Drone %d manque d'autonomie / %.1f < %d mns.\n", droneID, d->autonomie, c->tempsTrajet);
+            pthread_cond_signal(&vaisseau.condition_client);
+        }
+        else
+        {
+            pthread_mutex_lock(&vaisseau.mutex);
+        
+            vaisseau.nbPetitColis--;
+            order->livre = true;
+            d->autonomie -= c->tempsTrajet;
+            
+            // printf("Drone %d livre Client %d / Autonomie restante : %.1f minutes\n", droneID, c->clientID, d->autonomie);
+            pthread_cond_signal(&vaisseau.condition_client);
+            pthread_mutex_unlock(&vaisseau.mutex);
+        }
     }   
           
     pthread_exit(NULL);
 } */
 
-void *fonc_client(void *arg) 
-{
-    int clientID = (int)arg;
-    clients[clientID] = createClient(clientID);
-    Client c = clients[clientID];;
-    
-    bool satisfait = false;
-    bool eligible = false;
-    
-    
-    if(c->couvert && c->jardin && c->present && c->tempsTrajet <= 30)
-    {
-        printf("Client %d éligible / tempsTrajet : %d minutes / colis : %d\n", clientID, c->tempsTrajet, c->colis);
-        eligible = true;
-        
-        pthread_mutex_lock(&vaisseau.mutex);
-        vaisseau.nbPetitColis++;
-        vaisseau.colis = createColis(c->colis, c->clientID);
-        pthread_mutex_unlock(&vaisseau.mutex);
-    }   
-    else
-        printf("Client %d non éligible.\n", clientID);
-    
-    
-    while(!satisfait && eligible)
-    {
-        pthread_mutex_lock(&vaisseau.mutex);
-        
-        if(pthread_cond_signal(&vaisseau.condition_drone) != 0)
-            erreur("Erreur pthread_cond_signal Drone depuis Client");
-        
-        pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
-        
-        Colis colisVaisseau = vaisseau.colis;
-        if(colisVaisseau->livre)
-        {
-            printf("Client livré\n");
-            satisfait = true;
-        }  
-        else
-        {
-            printf("Client non livré.\n");
-            sleep(3);
-        }
-           
-        
-        pthread_mutex_unlock(&vaisseau.mutex);
-    }
-    
-    
-    
-    pthread_exit(NULL);
-}
+
 
 
 Drone createDrone(int type)
@@ -250,7 +285,7 @@ void createDroneThread(pthread_t *drone, int nbDrones, int type)
     {
         case PETIT:
             for(i=0; i<nbDrones; i++)
-                if(pthread_create(&drone[i], NULL, fonc_droneP, (void*)type))
+                if(pthread_create(&drone[i], NULL, fonc_droneP, (void*)i))
                     erreur("Erreur création thread Drone (Petit)\n");
             break;
         case MOYEN:
@@ -269,29 +304,17 @@ void createDroneThread(pthread_t *drone, int nbDrones, int type)
     printf("\n");
 }
 
-Colis createColis(int type, int clientID)
-{
-    Colis colis = malloc(sizeof(Colis));
-    
-    if(colis != NULL)
-    {
-        colis->type = type;
-        colis->clientID = clientID;
-        colis->livre = false;
-    }
 
-    return colis;
-}
-
-void recharger(Drone d, time_t *oldTime)
+float recharger(float autonomie, int type, time_t *oldTime)
 {
     time_t now;
     time(&now);
     double recharge = (double)now - (double)*oldTime;
     *oldTime = now;
+    float newAutonomie = autonomie;
     
     float maxAutonomie;
-    switch(d->type)
+    switch(type)
     {
         case PETIT:
             maxAutonomie = 40.0f;
@@ -304,9 +327,11 @@ void recharger(Drone d, time_t *oldTime)
             break;
     }
     
-    printf("recharge = %f / autonomie = %f \n", recharge, d->autonomie);
-    if((recharge + d->autonomie) >= maxAutonomie)
-        d->autonomie = maxAutonomie;
+    // printf("recharge = %f / autonomie = %f \n", recharge, d->autonomie);
+    if((recharge*2 + autonomie) >= maxAutonomie)
+        newAutonomie = maxAutonomie;
     else
-        d->autonomie += recharge;
+        newAutonomie += recharge*2;
+    
+    return newAutonomie;
 }
