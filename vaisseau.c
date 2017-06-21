@@ -1,5 +1,10 @@
 #include "vaisseau.h"
 
+/* To DO :
+- Commenter les fonctions
+- Augmenter le nombre de colis de type 1 et diminuer le nombre de colis de type 2/3 (client.c)
+*/
+
 Vaisseau vaisseau =
 {
    .nbPetitColis = 0,
@@ -57,7 +62,9 @@ int main()
 }
 
 
-
+/* Fonction du thread client :
+    
+*/
 void *fonc_client(void *arg) 
 {
     int clientID = (int)arg;
@@ -148,13 +155,13 @@ void *fonc_drone(void *arg)
         
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
-                
-        if(canDeliver(c, d))
+        
+        if(canDeliver(c->order->type, c->tempsTrajet, d->type))     
         {
-            // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
             
             if(meteo->temps_praticable && meteo->vent <= d->ventMax)
             {
+                // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
                 if(d->autonomie >= c->tempsTrajet)
                 {    
                     c->enAttente = false;
@@ -168,14 +175,15 @@ void *fonc_drone(void *arg)
                     
                     d->autonomie -= c->tempsTrajet;
                     
-                    // printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
+                    printf("Drone %d (%s) livre Client %d (%s) / Autonomie restante : %.1f minutes / trajet : %d\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet); 
                 }
                 /*else
                     printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", d->droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
             }
             else
-                printf("\t\t\tClient %d en attente (Météo)\n\n", clientID);
+                printf("\t\t\tClient %d en attente (Météo)\n\n", clientID); 
         }
+        
                 
         /* Réveil du client */
         pthread_cond_signal(&vaisseau.condition_client);
@@ -246,46 +254,46 @@ void createDroneThread(pthread_t *drone, int nbDrones, Type type)
 }
 
 
-bool canDeliver(Client c, Drone d)
+bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
 {
     int i;
     bool deliver = false;
     
-    if(c->order->type == d->type)
+    if(typeColis == typeDrone)
     {
         deliver = true;
     }
     else
     {
-        if(c->order->type < d->type)
+        if(typeColis < typeDrone)
         {
             deliver = true;
-            switch(c->order->type)
+            switch(typeColis)
             {
                 case PETIT:
                     
-                    if(d->type == GROS)
+                    if(typeDrone == GROS)
                     {
                         for(i=0; i<NB_DRONE_MOYEN; i++)
                         {
-                            Drone d = vaisseau.dronesM[i];
-                            if(c->tempsTrajet < d->autonomie)
+                            Drone drone = vaisseau.dronesM[i];
+                            if(tempsTrajet < drone->autonomie)
                                 deliver = false;
                         }   
                     }
                     
                     for(i=0; i<NB_DRONE_PETIT; i++)
                     {
-                        Drone d = vaisseau.dronesP[i];
-                        if(c->tempsTrajet < d->autonomie)
+                        Drone drone = vaisseau.dronesP[i];
+                        if(tempsTrajet < drone->autonomie)
                             deliver = false;
                     }
                     break;
                 case MOYEN:
                     for(i=0; i<NB_DRONE_MOYEN; i++)
                     {
-                        Drone d = vaisseau.dronesM[i];
-                        if(c->tempsTrajet < d->autonomie)
+                        Drone drone = vaisseau.dronesM[i];
+                        if(tempsTrajet < drone->autonomie)
                             deliver = false;
                     } 
                     break;
@@ -323,7 +331,7 @@ float recharger(float autonomie, Type type, time_t *oldTime)
     if((recharge*2 + autonomie) >= maxAutonomie)
         newAutonomie = maxAutonomie;
     else
-        newAutonomie += recharge*2;
+        newAutonomie += recharge*2*0;
     
     return newAutonomie;
 }
