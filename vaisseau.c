@@ -152,11 +152,12 @@ void *fonc_drone(void *arg)
         if(canDeliver(c, d))
         {
             // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
-
+            
             if(meteo->temps_praticable && meteo->vent <= d->ventMax)
             {
                 if(d->autonomie >= c->tempsTrajet)
                 {    
+                    c->enAttente = false;
                     c->satisfait = alea();
                     if(c->satisfait)
                     {
