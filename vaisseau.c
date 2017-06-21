@@ -9,9 +9,7 @@ Vaisseau vaisseau =
    .tempClientID = 0,
    .clientsLivres = 0,
    .mutex = PTHREAD_MUTEX_INITIALIZER,
-   .condition_droneP = PTHREAD_COND_INITIALIZER,
-   .condition_droneM = PTHREAD_COND_INITIALIZER,
-   .condition_droneG = PTHREAD_COND_INITIALIZER,
+   .condition_drone = PTHREAD_COND_INITIALIZER,
    .condition_client = PTHREAD_COND_INITIALIZER,
 };
 
@@ -34,13 +32,13 @@ int main()
     for(i=0; i < NB_CLIENTS; i++)
     {
         createClientThread(client[i], i);
-        usleep(500*IN_MILLISECONDS);
+        // usleep(100*IN_MILLISECONDS);
     }
     
     while(vaisseau.clientsLivres != NB_CLIENTS)
     {
         meteo = generationMeteo();
-        sleep(3);
+        usleep(500*IN_MILLISECONDS);
     }
         
     for(i=0; i < NB_DRONE_PETIT; i++)
@@ -61,7 +59,7 @@ void *fonc_client(void *arg)
     int clientID = (int)arg;
     clients[clientID] = createClient(clientID);
     Client c = clients[clientID];
-
+    
     bool finLivraison = false;
     bool livrable = false;
     
@@ -84,19 +82,7 @@ void *fonc_client(void *arg)
         vaisseau.tempClientID = clientID;
         
         /* Reveil du Drone */
-        switch(c->order->type)
-        {
-            case PETIT:
-                pthread_cond_signal(&vaisseau.condition_droneP);
-                break;
-            case MOYEN:
-                pthread_cond_signal(&vaisseau.condition_droneM);
-                break;
-            case GROS:
-                pthread_cond_signal(&vaisseau.condition_droneG);
-                break;
-        };
-		
+		pthread_cond_signal(&vaisseau.condition_drone);
         /* Client mis en attente */
         pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
                 
@@ -168,19 +154,7 @@ void drone(Type type, int droneID)
         pthread_mutex_lock(&vaisseau.mutex);
         
         /* Drone mis en attente */
-        switch(type)
-        {
-            case PETIT:
-                pthread_cond_wait(&vaisseau.condition_droneP, &vaisseau.mutex);
-                break;
-            case MOYEN:
-                pthread_cond_wait(&vaisseau.condition_droneM, &vaisseau.mutex);
-                break;
-            case GROS:
-                pthread_cond_wait(&vaisseau.condition_droneG, &vaisseau.mutex);
-                break;
-        };
-        
+        pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
         
         d->autonomie = recharger(d->autonomie, d->type, &oldTime);
         
@@ -188,31 +162,33 @@ void drone(Type type, int droneID)
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
         
-        // printf("Drone %d reveillé par Client %d (Petit) / autonomie : %.1f / trajet : %d\n", droneID, clientID, d->autonomie, c->tempsTrajet);
-         
-        if(meteo->temps_praticable && meteo->vent <= d->ventMax)
+        // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
+        
+        if(d->type == c->order->type)
         {
-            if(d->autonomie >= c->tempsTrajet)
-            {    
-				c->satisfait = alea();
-                if(c->satisfait)
-                {
-                    modNbColis(d->type, -1);
-                    // printf("Client %d livraison du drone\n",clientID);
-                    c->order->livre = true;
+            if(meteo->temps_praticable && meteo->vent <= d->ventMax)
+            {
+                if(d->autonomie >= c->tempsTrajet)
+                {    
+                    c->satisfait = alea();
+                    if(c->satisfait)
+                    {
+                        modNbColis(d->type, -1);
+                        // printf("Client %d livraison du drone\n",clientID);
+                        c->order->livre = true;
+                    }
+                    
+                    d->autonomie -= c->tempsTrajet;
+                    
+                    printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n", droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
                 }
-                
-                d->autonomie -= c->tempsTrajet;
-                
-                printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n", droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
+                /*else
+                    printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
             }
-            /*else
-                printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
+            else
+                printf("\t\t\tMétéo défavorable, le drone ne part pas.\n");
         }
-        else
-            printf("\t\t\tMétéo défavorable, le drone ne part pas.\n");
-        
-        
+                
         /* Réveil du client */
         pthread_cond_signal(&vaisseau.condition_client);
         /* FIN section critique */
@@ -296,10 +272,10 @@ float recharger(float autonomie, Type type, time_t *oldTime)
             maxAutonomie = 40.0f;
             break;
         case MOYEN:
-            maxAutonomie = 60.0f;
+            maxAutonomie = 50.0f;
             break;
         case GROS:
-            maxAutonomie = 90.0f;
+            maxAutonomie = 60.0f;
             break;
     }
     
