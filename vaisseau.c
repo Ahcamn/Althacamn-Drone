@@ -1,28 +1,13 @@
 #include "vaisseau.h"
 
-/* To DO :
-- Commenter les fonctions
-- Augmenter le nombre de colis de type 1 et diminuer le nombre de colis de type 2/3 (client.c)
-*/
-
 Vaisseau vaisseau =
 {
-   .nbPetitColis = 0,
-   .nbMoyenColis = 0,
-   .nbGrosColis = 0,
-   
    .tempClientID = 0,
    .clientsLivres = 0,
    .mutex = PTHREAD_MUTEX_INITIALIZER,
    .condition_drone = PTHREAD_COND_INITIALIZER,
    .condition_client = PTHREAD_COND_INITIALIZER,
 };
-
-void erreur(const char *msg)
-{
-    perror(msg);
-}
-
 
 int main()
 {   
@@ -78,9 +63,6 @@ void *fonc_client(void *arg)
     {
         // printf("Client %d éligible / tempsTrajet : %d minutes / colis : %d\n", clientID, c->tempsTrajet, c->order->type);
         livrable = true;
-        pthread_mutex_lock(&vaisseau.mutex);
-        modNbColis(c->order->type, 1);
-        pthread_mutex_unlock(&vaisseau.mutex);
     }   
     else
         printf("\t\t\t\t\t\tClient %d non éligible.\n\n", clientID);
@@ -151,34 +133,33 @@ void *fonc_drone(void *arg)
         /* Drone mis en attente */
         pthread_cond_wait(&vaisseau.condition_drone, &vaisseau.mutex);
         
-        d->autonomie = recharger(d->autonomie, d->type, &oldTime);
+        d->batterie = recharger(d->batterie, d->type, &oldTime);
         
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
         
-        if(canDeliver(c->order->type, c->tempsTrajet, d->type))     
-        {
-            
+        if(canDeliver(c->order->type, c->tempsTrajet*2, d->type))     
+        { 
             if(meteo->temps_praticable && meteo->vent <= d->ventMax)
             {
-                // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
-                if(d->autonomie >= c->tempsTrajet)
+                // printf("Drone %d (%s) reveillé par Client %d (%s) / Batterie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2);
+                if(d->batterie >= c->tempsTrajet*2)
                 {    
                     c->enAttente = false;
                     c->satisfait = alea();
                     if(c->satisfait)
                     {
-                        modNbColis(d->type, -1);
                         // printf("Client %d livraison du drone\n",clientID);
                         c->order->livre = true;
                     }
                     
-                    d->autonomie -= c->tempsTrajet;
+                    float coef = 1.0f + c->order->type/20.0f;                    
+                    d->batterie -= c->tempsTrajet*2*coef;
                     
-                    printf("Drone %d (%s) livre Client %d (%s) / Autonomie restante : %.1f minutes / trajet : %d\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet); 
+                    // printf("Drone %d (%s) livre Client %d (%s) / Batterie restante : %.1f minutes / trajet : %d\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2); 
                 }
                 /*else
-                    printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", d->droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
+                    printf("Drone %d manque de batterie pour Client %d / %.1f < %d mns.\n", d->droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
             }
             else
                 printf("\t\t\tClient %d en attente (Météo)\n\n", clientID); 
@@ -205,26 +186,26 @@ Drone createDrone(Type type, int i)
         {
             case PETIT:
                 d->droneID = 100 + i;
-                d->autonomie = 40.0f;
+                d->batterie = 65.0f;
                 d->tempsRecharge = 20.0f;
                 d->ventMax = 60;
                 break;
             case MOYEN:
                 d->droneID = 200 + i;
-                d->autonomie = 60.0f;
+                d->batterie = 75.0f;
                 d->tempsRecharge = 40.0f;
                 d->ventMax = 70;
                 break;
             case GROS:
                 d->droneID = 300 + i;
-                d->autonomie = 90.0f;
+                d->batterie = 85.0f;
                 d->tempsRecharge = 60.0f;
                 d->ventMax = 80;
                 break;
         };
     }
     else
-        erreur("Erreur création Drone\n");
+        perror("Erreur création Drone\n");
     
 	return d;
 }
@@ -249,7 +230,7 @@ void createDroneThread(pthread_t *drone, int nbDrones, Type type)
                 break;
         }
         if(pthread_create(&drone[i], NULL, fonc_drone, (void*)d))
-            erreur("Erreur création thread Drone (Petit)\n");
+            perror("Erreur création thread Drone (Petit)\n");
     }
 }
 
@@ -277,7 +258,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                         for(i=0; i<NB_DRONE_MOYEN; i++)
                         {
                             Drone drone = vaisseau.dronesM[i];
-                            if(tempsTrajet < drone->autonomie)
+                            if(tempsTrajet < drone->batterie)
                                 deliver = false;
                         }   
                     }
@@ -285,7 +266,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                     for(i=0; i<NB_DRONE_PETIT; i++)
                     {
                         Drone drone = vaisseau.dronesP[i];
-                        if(tempsTrajet < drone->autonomie)
+                        if(tempsTrajet < drone->batterie)
                             deliver = false;
                     }
                     break;
@@ -293,7 +274,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                     for(i=0; i<NB_DRONE_MOYEN; i++)
                     {
                         Drone drone = vaisseau.dronesM[i];
-                        if(tempsTrajet < drone->autonomie)
+                        if(tempsTrajet < drone->batterie)
                             deliver = false;
                     } 
                     break;
@@ -306,34 +287,34 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
     return deliver;
 }
 
-float recharger(float autonomie, Type type, time_t *oldTime)
+float recharger(float batterie, Type type, time_t *oldTime)
 {
     time_t now;
     time(&now);
-    double recharge = (double)now - (double)*oldTime;
+    double recharge = (double)now -(double)*oldTime;
     *oldTime = now;
-    float newAutonomie = autonomie;
+    float newBatterie = batterie;
+    float maxBatterie;
     
-    float maxAutonomie;
     switch(type)
     {
         case PETIT:
-            maxAutonomie = 40.0f;
+            maxBatterie = 65.0f;
             break;
         case MOYEN:
-            maxAutonomie = 50.0f;
+            maxBatterie = 75.0f;
             break;
         case GROS:
-            maxAutonomie = 60.0f;
+            maxBatterie = 85.0f;
             break;
     }
     
-    if((recharge*2 + autonomie) >= maxAutonomie)
-        newAutonomie = maxAutonomie;
+    if((recharge*2 + batterie) >= maxBatterie)
+        newBatterie = maxBatterie;
     else
-        newAutonomie += recharge*2*0;
+        newBatterie += recharge*2;
     
-    return newAutonomie;
+    return newBatterie;
 }
 
 void generationMeteo()
@@ -349,20 +330,20 @@ void generationMeteo()
     switch(rand()%5+1)
     {
         case 1:
-        meteo->vent = rand()%20 + 1;
-        break;
+            meteo->vent = rand()%20 + 1;
+            break;
         case 2:
-        meteo->vent = rand()%20 + 21;
-        break;
+            meteo->vent = rand()%20 + 21;
+            break;
         case 3:
-        meteo->vent = rand()%20 + 41;
-        break;
+            meteo->vent = rand()%20 + 41;
+            break;
         case 4:
-        meteo->vent = rand()%20 + 61;
-        break;
+            meteo->vent = rand()%20 + 61;
+            break;
         case 5:
-        meteo->vent = rand()%20 + 81;
-        break;
+            meteo->vent = rand()%20 + 81;
+            break;
     }
         
     printf("------------------------------------------------------------------------------\n");
@@ -382,20 +363,4 @@ const char* getTypeName(Type type)
       case GROS: return "Gros";
    }
    exit(EXIT_FAILURE);
-}
-
-void modNbColis(Type type, int x)
-{
-    switch(type)
-    {
-        case PETIT:
-            vaisseau.nbPetitColis += x;
-            break;
-        case MOYEN:
-            vaisseau.nbMoyenColis += x;
-            break;
-        case GROS:
-            vaisseau.nbGrosColis += x;
-            break;
-    }
 }
