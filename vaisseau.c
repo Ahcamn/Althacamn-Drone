@@ -22,7 +22,7 @@ void erreur(const char *msg)
 int main()
 {   
     int i;
-    meteo = generationMeteo();
+    generationMeteo();
     srand(time(NULL));
             
     createDroneThread(vaisseau.drone_petit, NB_DRONE_PETIT, PETIT);
@@ -37,18 +37,22 @@ int main()
     
     while(vaisseau.clientsLivres != NB_CLIENTS)
     {
-        meteo = generationMeteo();
-        usleep(500*IN_MILLISECONDS);
+        generationMeteo();
+        usleep(1000*IN_MILLISECONDS);
     }
-        
-    for(i=0; i < NB_DRONE_PETIT; i++)
-       if(pthread_join(vaisseau.drone_petit[i], NULL))
-            erreur("Erreur pthread_join Drone\n");
     
     for(i=0; i < NB_CLIENTS; i++)
-        if(pthread_join(client[i], NULL))
-            erreur("Erreur pthread_join Client\n");
-      
+        pthread_join(client[i], NULL);
+        
+    for(i=0; i < NB_DRONE_PETIT; i++)
+       pthread_join(vaisseau.drone_petit[i], NULL);
+        
+    for(i=0; i < NB_DRONE_MOYEN; i++)
+       pthread_join(vaisseau.drone_moyen[i], NULL);
+    
+    for(i=0; i < NB_DRONE_GROS; i++)
+       pthread_join(vaisseau.drone_gros[i], NULL);
+          
     exit(EXIT_SUCCESS);
 }
 
@@ -99,8 +103,12 @@ void *fonc_client(void *arg)
             }
             else
             {
-                printf("\t\t\tClient %d en attente.\n\n", clientID);
-                sleep(1);
+                if(!c->enAttente)
+                {
+                    c->enAttente = true;
+                    printf("\t\t\tClient %d en attente.\n\n", clientID);
+                }
+                usleep(100*IN_MILLISECONDS);
             }
         }
         else
@@ -120,32 +128,12 @@ void *fonc_client(void *arg)
     pthread_exit(NULL);
 }
 
-
-void *fonc_droneP(void *arg) 
+void *fonc_drone(void *arg) 
 {
-    drone(PETIT, (int)arg);          
-    pthread_exit(NULL);
-} 
-
-void *fonc_droneM(void *arg) 
-{
-    drone(MOYEN, (int)arg);          
-    pthread_exit(NULL);
-} 
-
-void *fonc_droneG(void *arg) 
-{
-    drone(GROS, (int)arg);          
-    pthread_exit(NULL);
-}
-
-
-void drone(Type type, int droneID)
-{
+    Drone d = (Drone)arg;
     int clientID;
     time_t oldTime;
     time(&oldTime);
-    Drone d = createDrone(type);
     Client c;
         
     while(1)
@@ -158,14 +146,13 @@ void drone(Type type, int droneID)
         
         d->autonomie = recharger(d->autonomie, d->type, &oldTime);
         
-        
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
-        
-        // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
-        
-        if(d->type == c->order->type)
+                
+        if(canDeliver(c, d))
         {
+            // printf("Drone %d (%s) reveillé par Client %d (%s) / autonomie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->autonomie, c->tempsTrajet);
+
             if(meteo->temps_praticable && meteo->vent <= d->ventMax)
             {
                 if(d->autonomie >= c->tempsTrajet)
@@ -180,23 +167,24 @@ void drone(Type type, int droneID)
                     
                     d->autonomie -= c->tempsTrajet;
                     
-                    printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n", droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
+                    // printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
                 }
                 /*else
-                    printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
+                    printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", d->droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
             }
             else
-                printf("\t\t\tMétéo défavorable, le drone ne part pas.\n");
+                printf("\t\t\tClient %d en attente (Météo)\n\n", clientID);
         }
                 
         /* Réveil du client */
         pthread_cond_signal(&vaisseau.condition_client);
         /* FIN section critique */
         pthread_mutex_unlock(&vaisseau.mutex);   
-    }   
-}
+    }       
+    pthread_exit(NULL);
+} 
 
-Drone createDrone(Type type)
+Drone createDrone(Type type, int i)
 {
 	Drone d = malloc(sizeof(Drone));
 	if(d!=NULL)
@@ -207,16 +195,19 @@ Drone createDrone(Type type)
         switch(type)
         {
             case PETIT:
+                d->droneID = 100 + i;
                 d->autonomie = 40.0f;
                 d->tempsRecharge = 20.0f;
                 d->ventMax = 60;
                 break;
             case MOYEN:
+                d->droneID = 200 + i;
                 d->autonomie = 60.0f;
                 d->tempsRecharge = 40.0f;
                 d->ventMax = 70;
                 break;
             case GROS:
+                d->droneID = 300 + i;
                 d->autonomie = 90.0f;
                 d->tempsRecharge = 60.0f;
                 d->ventMax = 80;
@@ -233,29 +224,78 @@ void createDroneThread(pthread_t *drone, int nbDrones, Type type)
 {
     int i;
     
-    switch(type)
+    for(i=0; i<nbDrones; i++)
     {
-        case PETIT:
-            for(i=0; i<nbDrones; i++)
-                if(pthread_create(&drone[i], NULL, fonc_droneP, (void*)i))
-                    erreur("Erreur création thread Drone (Petit)\n");
-            break;
-        case MOYEN:
-            for(i=0; i<nbDrones; i++)
-                if(pthread_create(&drone[i], NULL, fonc_droneM, (void*)i))
-                    erreur("Erreur création thread Drone (Moyen)\n");
-            break;
-        case GROS:
-            for(i=0; i<nbDrones; i++)
-                if(pthread_create(&drone[i], NULL, fonc_droneG, (void*)i))
-                    erreur("Erreur création thread Drone (Gros)\n");
-            break;
+        Drone d = createDrone(type, i);
+        switch(type)
+        {
+            case PETIT:
+                vaisseau.dronesP[i] = d;
+                break;
+            case MOYEN:
+                vaisseau.dronesM[i] = d;
+                break;
+            case GROS:
+                vaisseau.dronesG[i] = d;
+                break;
+        }
+        if(pthread_create(&drone[i], NULL, fonc_drone, (void*)d))
+            erreur("Erreur création thread Drone (Petit)\n");
     }
-    
-            
-    printf("\n");
 }
 
+
+bool canDeliver(Client c, Drone d)
+{
+    int i;
+    bool deliver = false;
+    
+    if(c->order->type == d->type)
+    {
+        deliver = true;
+    }
+    else
+    {
+        if(c->order->type < d->type)
+        {
+            deliver = true;
+            switch(c->order->type)
+            {
+                case PETIT:
+                    
+                    if(d->type == GROS)
+                    {
+                        for(i=0; i<NB_DRONE_MOYEN; i++)
+                        {
+                            Drone d = vaisseau.dronesM[i];
+                            if(c->tempsTrajet < d->autonomie)
+                                deliver = false;
+                        }   
+                    }
+                    
+                    for(i=0; i<NB_DRONE_PETIT; i++)
+                    {
+                        Drone d = vaisseau.dronesP[i];
+                        if(c->tempsTrajet < d->autonomie)
+                            deliver = false;
+                    }
+                    break;
+                case MOYEN:
+                    for(i=0; i<NB_DRONE_MOYEN; i++)
+                    {
+                        Drone d = vaisseau.dronesM[i];
+                        if(c->tempsTrajet < d->autonomie)
+                            deliver = false;
+                    } 
+                    break;
+                case GROS:
+                    break;
+            }
+        }
+    }
+    
+    return deliver;
+}
 
 float recharger(float autonomie, Type type, time_t *oldTime)
 {
@@ -279,7 +319,6 @@ float recharger(float autonomie, Type type, time_t *oldTime)
             break;
     }
     
-    // printf("recharge = %f / autonomie = %f \n", recharge, d->autonomie);
     if((recharge*2 + autonomie) >= maxAutonomie)
         newAutonomie = maxAutonomie;
     else
@@ -288,13 +327,15 @@ float recharger(float autonomie, Type type, time_t *oldTime)
     return newAutonomie;
 }
 
-Meteo generationMeteo()
+void generationMeteo()
 {
-    Meteo meteo = malloc(sizeof(Meteo));
-    if((rand()%10 + 1) == 1) 
-        meteo->temps_praticable = false;
-    else 
+    if(meteo == NULL)
+        meteo = malloc(sizeof(Meteo));
+    
+    if(rand()%10) 
         meteo->temps_praticable = true;
+    else 
+        meteo->temps_praticable = false;
     
     switch(rand()%5+1)
     {
@@ -302,20 +343,25 @@ Meteo generationMeteo()
         meteo->vent = rand()%20 + 1;
         break;
         case 2:
-        meteo->vent = rand()%30 + 20;
+        meteo->vent = rand()%20 + 21;
         break;
         case 3:
-        meteo->vent = rand()%40 + 30;
+        meteo->vent = rand()%20 + 41;
         break;
         case 4:
-        meteo->vent = rand()%65 + 40;
+        meteo->vent = rand()%20 + 61;
         break;
         case 5:
-        meteo->vent = rand()%100 + 65;
+        meteo->vent = rand()%20 + 81;
         break;
     }
-    
-    return meteo;
+        
+    printf("------------------------------------------------------------------------------\n");
+    if(meteo->temps_praticable)
+        printf("\t\tChangement de Météo (Praticable / Vent : %d)\n", meteo->vent);
+    else
+        printf("\t\tChangement de Météo (Non praticable)\n");
+    printf("------------------------------------------------------------------------------\n\n");
 }
 
 const char* getTypeName(Type type) 
