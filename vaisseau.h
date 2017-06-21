@@ -27,7 +27,7 @@ typedef struct DroneStruct
 {
     int droneID;
     Type type;
-    float autonomie;
+    float batterie;
     float tempsRecharge;
     int ventMax;
     bool disponibilite;
@@ -38,10 +38,6 @@ typedef DroneStruct* Drone;
 
 typedef struct Vaisseau
 {
-    int nbPetitColis;
-    int nbMoyenColis;
-    int nbGrosColis;
-    
     int tempClientID;
     int clientsLivres;
     
@@ -78,6 +74,5 @@ bool canDeliver(int, int, int);
 float recharger(float , Type, time_t*);
 void generationMeteo();
 const char* getTypeName(Type);
-void modNbColis(Type, int);
 
 #endif
