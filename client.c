@@ -17,6 +17,7 @@ Client createClient(int i)
         c->jardin = alea();
         c->present = alea();
         c->satisfait = true;
+        c->enAttente = false;
         c->tempsTrajet = rand()%21 + 10;
         c->order = createOrder();
     }
@@ -44,6 +45,7 @@ Order createOrder()
 			order->type = GROS;
 			break;
 		}
+        
         order->livre = false;
     }
     else
