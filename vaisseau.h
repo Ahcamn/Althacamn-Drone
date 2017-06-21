@@ -13,15 +13,18 @@
 #include <stdbool.h>
 #include <time.h>
 
+typedef enum Type Type;
+enum Type
+{
+	PETIT, MOYEN, GROS
+};
+
 #include "client.h"
 
 #define NB_DRONE_PETIT 6
 #define NB_DRONE_MOYEN 4
 #define NB_DRONE_GROS  2
 
-#define PETIT 1
-#define MOYEN 2
-#define GROS  3
 #define IN_MILLISECONDS 1000
 
 typedef struct Vaisseau
@@ -46,7 +49,7 @@ typedef struct Vaisseau
 
 typedef struct DroneStruct
 {
-    int type;
+    Type type;
     float autonomie;
     float tempsRecharge;
     int ventMax;
@@ -71,11 +74,12 @@ void *fonc_client(void*);
 void *fonc_droneP(void*);
 void *fonc_droneM(void*);
 void *fonc_droneG(void*);
-void drone(int, int); 
-Drone createDrone(int);
-void createDroneThread(pthread_t*, int, int);
-float recharger(float , int, time_t*);
+void drone(Type, int); 
+Drone createDrone(Type);
+void createDroneThread(pthread_t*, int, Type);
+float recharger(float , Type, time_t*);
 Meteo generationMeteo();
-
+const char* getTypeName(Type);
+void modNbColis(Type, int);
 
 #endif
