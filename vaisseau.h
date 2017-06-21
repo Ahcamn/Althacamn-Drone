@@ -5,10 +5,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-#include <sys/types.h>
-#include <sys/ipc.h> 
-#include <sys/sem.h>
-#include <sys/msg.h>
 #include <pthread.h> 
 #include <stdbool.h>
 #include <time.h>
@@ -21,8 +17,8 @@ enum Type
 
 #include "client.h"
 
-#define NB_DRONE_PETIT 6
-#define NB_DRONE_MOYEN 4
+#define NB_DRONE_PETIT 4
+#define NB_DRONE_MOYEN 3
 #define NB_DRONE_GROS  2
 
 #define IN_MILLISECONDS 1000
@@ -78,7 +74,7 @@ void *fonc_drone(void*);
 void drone(Type, int); 
 Drone createDrone(Type, int);
 void createDroneThread(pthread_t*, int, Type);
-bool canDeliver(Client, Drone);
+bool canDeliver(int, int, int);
 float recharger(float , Type, time_t*);
 void generationMeteo();
 const char* getTypeName(Type);
