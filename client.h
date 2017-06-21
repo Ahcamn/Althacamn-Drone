@@ -15,8 +15,6 @@
 
 #define NB_CLIENTS 15
 
-
-
 typedef struct OrderStruct
 {
     Type type;
@@ -32,6 +30,7 @@ typedef struct ClientStruct
     bool jardin;
     bool present;
     bool satisfait;
+    bool enAttente;
     int tempsTrajet;
     Order order;
 }ClientStruct;
