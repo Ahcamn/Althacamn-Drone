@@ -32,7 +32,18 @@ Order createOrder()
     
     if(order != NULL)
     {
-        order->type = rand()%3 + 1;;
+        switch(rand()%3 + 1)
+		{
+			case 1:
+			order->type = PETIT;
+			break;
+			case 2:
+			order->type = MOYEN;
+			break;
+			case 3:
+			order->type = GROS;
+			break;
+		}
         order->livre = false;
     }
     else
