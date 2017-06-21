@@ -71,7 +71,7 @@ void *fonc_client(void *arg)
         // printf("Client %d éligible / tempsTrajet : %d minutes / colis : %d\n", clientID, c->tempsTrajet, c->order->type);
         livrable = true;
         pthread_mutex_lock(&vaisseau.mutex);
-        vaisseau.nbPetitColis++;
+        modNbColis(c->order->type, 1);
         pthread_mutex_unlock(&vaisseau.mutex);
     }   
     else
@@ -97,7 +97,7 @@ void *fonc_client(void *arg)
                 pthread_cond_signal(&vaisseau.condition_droneG);
                 break;
         };
-        pthread_cond_signal(&vaisseau.condition_droneP);
+		
         /* Client mis en attente */
         pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
                 
@@ -155,7 +155,7 @@ void *fonc_droneG(void *arg)
 }
 
 
-void drone(int type, int droneID)
+void drone(Type type, int droneID)
 {
     int clientID;
     time_t oldTime;
@@ -194,17 +194,18 @@ void drone(int type, int droneID)
         if(meteo->temps_praticable && meteo->vent <= d->ventMax)
         {
             if(d->autonomie >= c->tempsTrajet)
-            {              
-                if(c->satisfait = alea())
+            {    
+				c->satisfait = alea();
+                if(c->satisfait)
                 {
-                    vaisseau.nbPetitColis--;
+                    modNbColis(d->type, -1);
                     // printf("Client %d livraison du drone\n",clientID);
                     c->order->livre = true;
                 }
                 
                 d->autonomie -= c->tempsTrajet;
                 
-                printf("Drone %d (type %d) livre Client %d (Colis %d) / Autonomie restante : %.1f minutes\n", droneID, d->type, c->clientID, c->order->type, d->autonomie); 
+                printf("Drone %d (type %s) livre Client %d (Colis %s) / Autonomie restante : %.1f minutes\n", droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->autonomie); 
             }
             /*else
                 printf("Drone %d manque d'autonomie pour Client %d / %.1f < %d mns.\n", droneID, clientID, d->autonomie, c->tempsTrajet);*/ 
@@ -220,7 +221,7 @@ void drone(int type, int droneID)
     }   
 }
 
-Drone createDrone(int type)
+Drone createDrone(Type type)
 {
 	Drone d = malloc(sizeof(Drone));
 	if(d!=NULL)
@@ -253,7 +254,7 @@ Drone createDrone(int type)
 	return d;
 }
 
-void createDroneThread(pthread_t *drone, int nbDrones, int type)
+void createDroneThread(pthread_t *drone, int nbDrones, Type type)
 {
     int i;
     
@@ -281,7 +282,7 @@ void createDroneThread(pthread_t *drone, int nbDrones, int type)
 }
 
 
-float recharger(float autonomie, int type, time_t *oldTime)
+float recharger(float autonomie, Type type, time_t *oldTime)
 {
     time_t now;
     time(&now);
@@ -340,4 +341,31 @@ Meteo generationMeteo()
     }
     
     return meteo;
+}
+
+const char* getTypeName(Type type) 
+{
+   switch (type) 
+   {
+      case PETIT: return "Petit";
+      case MOYEN: return "Moyen";
+      case GROS: return "Gros";
+   }
+   exit(EXIT_FAILURE);
+}
+
+void modNbColis(Type type, int x)
+{
+    switch(type)
+    {
+        case PETIT:
+            vaisseau.nbPetitColis += x;
+            break;
+        case MOYEN:
+            vaisseau.nbMoyenColis += x;
+            break;
+        case GROS:
+            vaisseau.nbGrosColis += x;
+            break;
+    }
 }
