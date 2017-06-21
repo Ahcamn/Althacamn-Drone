@@ -23,6 +23,9 @@ enum Type
 
 #define IN_MILLISECONDS 1000
 
+
+/* Définition des Structures */
+
 typedef struct DroneStruct
 {
     int droneID;
@@ -35,6 +38,19 @@ typedef struct DroneStruct
 }DroneStruct;
 
 typedef DroneStruct* Drone;
+
+typedef struct MeteoStruct
+{
+ bool temps_praticable;
+ int vent;
+}MeteoStruct;
+
+typedef MeteoStruct* Meteo;
+
+
+/* Variables globales */
+
+Meteo meteo;
 
 typedef struct Vaisseau
 {
@@ -54,15 +70,7 @@ typedef struct Vaisseau
     pthread_mutex_t mutex; 
 }Vaisseau;
 
-typedef struct MeteoStruct
-{
- bool temps_praticable;
- int vent;
-}MeteoStruct;
-
-typedef MeteoStruct* Meteo;
-
-Meteo meteo;
+/* Prototypes des fonctions */
 
 void erreur(const char*);
 void *fonc_client(void*); 
