@@ -34,7 +34,7 @@ int main()
     for(i=0; i < NB_CLIENTS; i++)
     {
         createClientThread(client[i], i);
-        // usleep(500*IN_MILLISECONDS);
+        usleep(500*IN_MILLISECONDS);
     }
     
     while(vaisseau.clientsLivres != NB_CLIENTS)
@@ -61,7 +61,6 @@ void *fonc_client(void *arg)
     int clientID = (int)arg;
     clients[clientID] = createClient(clientID);
     Client c = clients[clientID];
-    pthread_cond_t condition_drone;
 
     bool finLivraison = false;
     bool livrable = false;
