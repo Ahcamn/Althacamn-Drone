@@ -3,7 +3,7 @@
 void createClientThread(pthread_t client, int i)
 {
     if(pthread_create(&client, NULL, fonc_client, (void*)i))
-        erreur("Erreur création thread Client\n");
+        perror("Erreur création thread Client\n");
 }
     
 Client createClient(int i)
@@ -22,7 +22,7 @@ Client createClient(int i)
         c->order = createOrder();
     }
     else
-        erreur("Erreur création Drone\n");
+        perror("Erreur création Drone\n");
     
     return c;
 }
@@ -50,7 +50,7 @@ Order createOrder()
         order->livre = false;
     }
     else
-        erreur("Erreur création Commande\n");
+        perror("Erreur création Commande\n");
 
     return order;
 }
