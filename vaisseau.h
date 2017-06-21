@@ -27,28 +27,9 @@ enum Type
 
 #define IN_MILLISECONDS 1000
 
-typedef struct Vaisseau
-{
-    int nbPetitColis;
-    int nbMoyenColis;
-    int nbGrosColis;
-    
-    int tempClientID;
-    int clientsLivres;
-    
-    pthread_t drone_petit[NB_DRONE_PETIT];    
-    pthread_t drone_moyen[NB_DRONE_MOYEN];    
-    pthread_t drone_gros[NB_DRONE_GROS];   
-    
-    pthread_cond_t condition_droneP;
-    pthread_cond_t condition_droneM;
-    pthread_cond_t condition_droneG;
-    pthread_cond_t condition_client;
-    pthread_mutex_t mutex; 
-}Vaisseau;
-
 typedef struct DroneStruct
 {
+    int droneID;
     Type type;
     float autonomie;
     float tempsRecharge;
@@ -58,6 +39,28 @@ typedef struct DroneStruct
 }DroneStruct;
 
 typedef DroneStruct* Drone;
+
+typedef struct Vaisseau
+{
+    int nbPetitColis;
+    int nbMoyenColis;
+    int nbGrosColis;
+    
+    int tempClientID;
+    int clientsLivres;
+    
+    Drone dronesP[NB_DRONE_PETIT];
+    Drone dronesM[NB_DRONE_PETIT];
+    Drone dronesG[NB_DRONE_PETIT];
+    
+    pthread_t drone_petit[NB_DRONE_PETIT];    
+    pthread_t drone_moyen[NB_DRONE_MOYEN];    
+    pthread_t drone_gros[NB_DRONE_GROS];   
+    
+    pthread_cond_t condition_drone;
+    pthread_cond_t condition_client;
+    pthread_mutex_t mutex; 
+}Vaisseau;
 
 typedef struct MeteoStruct
 {
@@ -71,14 +74,13 @@ Meteo meteo;
 
 void erreur(const char*);
 void *fonc_client(void*); 
-void *fonc_droneP(void*);
-void *fonc_droneM(void*);
-void *fonc_droneG(void*);
+void *fonc_drone(void*);
 void drone(Type, int); 
-Drone createDrone(Type);
+Drone createDrone(Type, int);
 void createDroneThread(pthread_t*, int, Type);
+bool canDeliver(Client, Drone);
 float recharger(float , Type, time_t*);
-Meteo generationMeteo();
+void generationMeteo();
 const char* getTypeName(Type);
 void modNbColis(Type, int);
 
