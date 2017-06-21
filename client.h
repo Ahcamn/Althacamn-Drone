@@ -12,6 +12,8 @@
 
 #define NB_CLIENTS 15
 
+/* Définition des Structures */
+
 typedef struct OrderStruct
 {
     Type type;
@@ -34,10 +36,14 @@ typedef struct ClientStruct
 
 typedef ClientStruct* Client;
 
-Client clients[NB_CLIENTS]; 
+/* Variables globales */
 
+Client clients[NB_CLIENTS]; 
 pthread_t client[NB_CLIENTS];
  
+ 
+/* Prototypes des fonctions */
+
 void createClientThread(pthread_t, int);
 Client createClient(int);
 Order createOrder();
