@@ -1,10 +1,17 @@
 #include "client.h"
 
 /* Crée les threads Client */
-void createClientThread(pthread_t client, int i)
+void createClientThread(pthread_t *client, int nbClients)
 {
-    if(pthread_create(&client, NULL, fonc_client, (void*)(intptr_t)i))
-        perror("Erreur création thread Client\n");
+    int i;
+    
+    for(i=0; i < nbClients; i++)
+    {
+        if(pthread_create(&client[i], NULL, fonc_client, (void*)(intptr_t)i))
+            perror("Erreur création thread Client\n");
+        
+        usleep(100*IN_MILLISECONDS);
+    }   
 }
 
 /* Crée et initialise la structure d'un Client */   
