@@ -74,10 +74,11 @@ typedef struct Vaisseau
 
 void erreur(const char*);
 void *fonc_client(void*); 
-void *fonc_drone(void*);
-void drone(Type, int); 
-Drone createDrone(Type, int);
+void *fonc_drone(void*); 
+
 void createDroneThread(pthread_t*, int, Type);
+Drone createDrone(Type, int);
+
 bool canDeliver(int, int, int);
 float recharger(float , Type, time_t*);
 void generationMeteo();
