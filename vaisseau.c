@@ -165,8 +165,7 @@ void *fonc_drone(void *arg)
                     c->satisfait = alea();
                     if(c->satisfait)
                         c->order->livre = true;
-                    
-                                        
+                                      
                     d->batterie -= c->tempsTrajet*2*coef;
                     
                     printf("Drone %d (%s) livre Client %d (%s) / Batterie restante : %.1f minutes / trajet : %.1f\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2*coef); 
