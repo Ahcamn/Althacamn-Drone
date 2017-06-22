@@ -1,11 +1,13 @@
 #include "client.h"
 
+/* Crée les threads Client */
 void createClientThread(pthread_t client, int i)
 {
     if(pthread_create(&client, NULL, fonc_client, (void*)i))
         perror("Erreur création thread Client\n");
 }
-    
+
+/* Crée et initialise la structure d'un Client */   
 Client createClient(int i)
 {
     Client c = malloc(sizeof(Client));
@@ -27,6 +29,7 @@ Client createClient(int i)
     return c;
 }
 
+/* Crée et initialise la structure d'un Colis */
 Order createOrder()
 {
     Order order = malloc(sizeof(Order));
@@ -55,6 +58,7 @@ Order createOrder()
     return order;
 }
 
+/* Retourne un nombre aléatoire entre 1 et 100 */
 bool alea()
 {
     int r = rand() % 100 + 1;
