@@ -46,6 +46,7 @@ pthread_t client[NB_CLIENTS];
 
 void createClientThread(pthread_t, int);
 Client createClient(int);
+
 Order createOrder();
 bool alea();
 
