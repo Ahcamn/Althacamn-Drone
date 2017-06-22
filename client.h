@@ -30,7 +30,7 @@ typedef struct ClientStruct
     bool present;
     bool satisfait;
     bool enAttente;
-    int tempsTrajet;
+    float tempsTrajet;
     Order order;
 }ClientStruct;
 
@@ -38,13 +38,13 @@ typedef ClientStruct* Client;
 
 /* Variables globales */
 
-Client clients[NB_CLIENTS]; 
-pthread_t client[NB_CLIENTS];
+Client *clients; 
+pthread_t *client;
  
  
 /* Prototypes des fonctions */
 
-void createClientThread(pthread_t, int);
+void createClientThread(pthread_t*, int);
 Client createClient(int);
 
 Order createOrder();
