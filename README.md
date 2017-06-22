@@ -14,4 +14,5 @@ du projet avec un terminal bash.
 
 
 
-Réalisé par Florian RIFFLART et Pierrick GRAF
+# Réalisé par
+Florian RIFFLART et Pierrick GRAF
