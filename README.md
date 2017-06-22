@@ -6,12 +6,12 @@ les drones afin de définir une situation réaliste de déploiment de la flotte 
 
 # Compilation 
 Un MAKEFILE a été créé pour permettre la compilation du programme en utilisant la commande make.
-Un make clean permet de nettoyer les fichiers de compilations.
+#Un make clean permet de nettoyer les fichiers de compilations.
 
 # Exécution
 Pour exécuter le programme, il faut utiliser la commande ./Drone en se trouvant dans le répertoire
 du projet avec un terminal bash. 
 
 
-
+#
 Florian RIFFLART et Pierrick GRAF
