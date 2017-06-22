@@ -33,7 +33,6 @@ typedef struct DroneStruct
     float batterie;
     float tempsRecharge;
     int ventMax;
-    bool disponibilite;
     
 }DroneStruct;
 
@@ -57,13 +56,18 @@ typedef struct Vaisseau
     int tempClientID;
     int clientsLivres;
     
-    Drone dronesP[NB_DRONE_PETIT];
-    Drone dronesM[NB_DRONE_PETIT];
-    Drone dronesG[NB_DRONE_PETIT];
+    int nbClients;
+    int nbPetitDrones;
+    int nbMoyenDrones;
+    int nbGrosDrones;
     
-    pthread_t drone_petit[NB_DRONE_PETIT];    
-    pthread_t drone_moyen[NB_DRONE_MOYEN];    
-    pthread_t drone_gros[NB_DRONE_GROS];   
+    Drone *dronesP;
+    Drone *dronesM;
+    Drone *dronesG;
+    
+    pthread_t *drone_petit;    
+    pthread_t *drone_moyen;    
+    pthread_t *drone_gros;   
     
     pthread_cond_t condition_drone;
     pthread_cond_t condition_client;
@@ -79,9 +83,12 @@ void *fonc_drone(void*);
 void createDroneThread(pthread_t*, int, Type);
 Drone createDrone(Type, int);
 
-bool canDeliver(int, int, int);
+bool canDeliver(int, float, int);
 float recharger(float , Type, time_t*);
 void generationMeteo();
 const char* getTypeName(Type);
+
+void allocateMemory();
+void freeMemory();
 
 #endif
