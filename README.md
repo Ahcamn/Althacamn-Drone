@@ -11,3 +11,7 @@ Un make clean permet de nettoyer les fichiers de compilations.
 # Exécution
 Pour exécuter le programme, il faut utiliser la commande ./Drone en se trouvant dans le répertoire
 du projet avec un terminal bash. 
+
+
+
+Réalisé par Florian RIFFLART et Pierrick GRAF
