@@ -42,7 +42,7 @@ int main()
 /* Fonction utilisée par les threads Client */
 void *fonc_client(void *arg) 
 {
-    int clientID = (int)arg;
+    int clientID = (intptr_t)arg;
     clients[clientID] = createClient(clientID);
     Client c = clients[clientID];
     
@@ -62,7 +62,7 @@ void *fonc_client(void *arg)
         vaisseau.tempClientID = clientID;
         
         /* Reveil du Drone */
-	pthread_cond_signal(&vaisseau.condition_drone);
+        pthread_cond_signal(&vaisseau.condition_drone);
         /* Client mis en attente */
         pthread_cond_wait(&vaisseau.condition_client, &vaisseau.mutex);
                 
