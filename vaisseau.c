@@ -4,37 +4,66 @@ Vaisseau vaisseau =
 {
    .tempClientID = 0,
    .clientsLivres = 0,
+   .nbClients = NB_CLIENTS,
+   .nbPetitDrones = NB_DRONE_PETIT,
+   .nbMoyenDrones = NB_DRONE_MOYEN,
+   .nbGrosDrones = NB_DRONE_GROS,
    .mutex = PTHREAD_MUTEX_INITIALIZER,
    .condition_drone = PTHREAD_COND_INITIALIZER,
    .condition_client = PTHREAD_COND_INITIALIZER,
 };
 
-int main()
-{   
-    int i;
+int main (int argc, char *argv[])
+{
+    int i; 
+    
     generationMeteo();
     srand(time(NULL));
-            
-    createDroneThread(vaisseau.drone_petit, NB_DRONE_PETIT, PETIT);
-    createDroneThread(vaisseau.drone_moyen, NB_DRONE_MOYEN, MOYEN);
-    createDroneThread(vaisseau.drone_gros, NB_DRONE_GROS, GROS);
-    
-    for(i=0; i < NB_CLIENTS; i++)
-    {
-        createClientThread(client[i], i);
-        usleep(100*IN_MILLISECONDS);
+
+    if(argc >= 4)
+    {       
+        vaisseau.nbPetitDrones = atoi(argv[1]);
+        vaisseau.nbMoyenDrones = atoi(argv[2]);
+        vaisseau.nbGrosDrones = atoi(argv[3]);
+                
+        if(argc == 5)
+            vaisseau.nbClients = atoi(argv[4]);
     }
     
-    while(vaisseau.clientsLivres != NB_CLIENTS)
+    /* Allocation mémoire des Structures et des Threads */
+    allocateMemory();
+         
+    /* Création des Drones */
+    createDroneThread(vaisseau.drone_petit, vaisseau.nbPetitDrones, PETIT);
+    createDroneThread(vaisseau.drone_moyen, vaisseau.nbMoyenDrones, MOYEN);
+    createDroneThread(vaisseau.drone_gros, vaisseau.nbGrosDrones, GROS);
+    
+    /* Création des Clients */
+    createClientThread(client, vaisseau.nbClients);
+
+    /* Mise à jour de la météo */
+    while(vaisseau.clientsLivres != vaisseau.nbClients)
     {
         generationMeteo();
         usleep(1000*IN_MILLISECONDS);
     }
     
-    for(i=0; i < NB_CLIENTS; i++)
+    for(i=0; i < vaisseau.nbClients; i++)
         pthread_join(client[i], NULL);
     
+    for(i=0; i < vaisseau.nbPetitDrones; i++)
+        pthread_cancel(vaisseau.drone_petit[i]);
+    
+    for(i=0; i < vaisseau.nbMoyenDrones; i++)
+        pthread_cancel(vaisseau.drone_moyen[i]);
+    
+    for(i=0; i < vaisseau.nbGrosDrones; i++)
+        pthread_cancel(vaisseau.drone_gros[i]);
+    
     printf("Tous les clients livrables ont été livrés !\n");
+    
+    /* Libération mémoire des Structures et des Threads */
+    freeMemory();
                   
     exit(EXIT_SUCCESS);
 }
@@ -52,8 +81,8 @@ void *fonc_client(void *arg)
     if(c->couvert && c->jardin && c->tempsTrajet <= 30)
         livrable = true;  
     else
-        printf("\t\t\t\t\t\tClient %d non éligible.\n\n", clientID);
-        
+        printf("\t\t\t\t\t\tClient %d non éligible.\n\n", clientID); 
+    
     while(livrable && c->satisfait && !finLivraison)
     {
         /* DEBUT section critique */
@@ -106,6 +135,7 @@ void *fonc_drone(void *arg)
 {
     Drone d = (Drone)arg;
     int clientID;
+    float coef;
     time_t oldTime;
     time(&oldTime);
     Client c;
@@ -122,26 +152,27 @@ void *fonc_drone(void *arg)
         
         clientID = vaisseau.tempClientID;
         c = clients[clientID];
+        coef = 1.0f + c->order->type/20.0f;
         
-        if(canDeliver(c->order->type, c->tempsTrajet*2, d->type))     
+        if(canDeliver(c->order->type, c->tempsTrajet*2*coef, d->type))     
         { 
             if(meteo->temps_praticable && meteo->vent <= d->ventMax)
             {
-                // printf("Drone %d (%s) reveillé par Client %d (%s) / Batterie : %.1f / trajet : %d\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2);
-                if(d->batterie >= c->tempsTrajet*2)
+                printf("Drone %d (%s) reveillé par Client %d (%s) / Batterie : %.1f / trajet : %.1f\n", d->droneID, getTypeName(d->type), clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2*coef);
+                if(d->batterie >= c->tempsTrajet*2*coef)
                 {    
                     c->enAttente = false;
                     c->satisfait = alea();
                     if(c->satisfait)
                         c->order->livre = true;
                     
-                    float coef = 1.0f + c->order->type/20.0f;                    
+                                        
                     d->batterie -= c->tempsTrajet*2*coef;
                     
-                    // printf("Drone %d (%s) livre Client %d (%s) / Batterie restante : %.1f minutes / trajet : %d\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2); 
+                    printf("Drone %d (%s) livre Client %d (%s) / Batterie restante : %.1f minutes / trajet : %.1f\n\n", d->droneID, getTypeName(d->type), c->clientID, getTypeName(c->order->type), d->batterie, c->tempsTrajet*2*coef); 
                 }
-                /*else
-                    printf("Drone %d manque de batterie pour Client %d / %.1f < %d mns.\n", d->droneID, clientID, d->batterie, c->tempsTrajet*2); */
+                else
+                    printf("Drone %d manque de batterie pour Client %d / %.1f < %.1f mns.\n\n", d->droneID, clientID, d->batterie, c->tempsTrajet*2*coef);
             }
             else
                 printf("\t\t\tClient %d en attente (Météo)\n\n", clientID); 
@@ -160,7 +191,7 @@ void *fonc_drone(void *arg)
 void createDroneThread(pthread_t *drone, int nbDrones, Type type)
 {
     int i;
-    
+        
     for(i=0; i<nbDrones; i++)
     {
         Drone d = createDrone(type, i);
@@ -189,7 +220,6 @@ Drone createDrone(Type type, int i)
 	if(d!=NULL)
     {
         d->type = type;
-        d->disponibilite = true;
         
         switch(type)
         {
@@ -220,7 +250,7 @@ Drone createDrone(Type type, int i)
 }
 
 /* Retourne true si le drone reveillé peut/doit livrer le drone, sinon false */
-bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
+bool canDeliver(int typeColis, float tempsTrajet, int typeDrone)
 {
     int i;
     bool deliver = false;
@@ -240,7 +270,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                     
                     if(typeDrone == GROS)
                     {
-                        for(i=0; i<NB_DRONE_MOYEN; i++)
+                        for(i=0; i<vaisseau.nbMoyenDrones; i++)
                         {
                             Drone drone = vaisseau.dronesM[i];
                             if(tempsTrajet < drone->batterie)
@@ -248,7 +278,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                         }   
                     }
                     
-                    for(i=0; i<NB_DRONE_PETIT; i++)
+                    for(i=0; i<vaisseau.nbPetitDrones; i++)
                     {
                         Drone drone = vaisseau.dronesP[i];
                         if(tempsTrajet < drone->batterie)
@@ -256,7 +286,7 @@ bool canDeliver(int typeColis, int tempsTrajet, int typeDrone)
                     }
                     break;
                 case MOYEN:
-                    for(i=0; i<NB_DRONE_MOYEN; i++)
+                    for(i=0; i<vaisseau.nbMoyenDrones; i++)
                     {
                         Drone drone = vaisseau.dronesM[i];
                         if(tempsTrajet < drone->batterie)
@@ -350,4 +380,38 @@ const char* getTypeName(Type type)
       case GROS: return "Gros";
    }
    exit(EXIT_FAILURE);
+}
+
+void allocateMemory()
+{
+    /* Allocation mémoire des Structures */
+    vaisseau.dronesP = malloc(vaisseau.nbPetitDrones*sizeof(Drone));
+    vaisseau.dronesM = malloc(vaisseau.nbMoyenDrones*sizeof(Drone));
+    vaisseau.dronesG = malloc(vaisseau.nbGrosDrones*sizeof(Drone));
+    clients = malloc(vaisseau.nbClients*sizeof(Client));
+
+    /* Allocation mémoire des Threads */
+    vaisseau.drone_petit = malloc(vaisseau.nbPetitDrones*sizeof(pthread_t));
+    vaisseau.drone_moyen = malloc(vaisseau.nbMoyenDrones*sizeof(pthread_t));
+    vaisseau.drone_gros = malloc(vaisseau.nbGrosDrones*sizeof(pthread_t));
+    client = malloc(vaisseau.nbClients*sizeof(pthread_t));
+}
+
+void freeMemory()
+{
+    int i;
+    
+    /* Libération mémoire des Structures */
+    free(vaisseau.dronesP);
+    free(vaisseau.dronesM);
+    free(vaisseau.dronesG);
+    for(i=0; i < vaisseau.nbClients; i++)
+        free(clients[i]->order);
+    free(clients);
+    
+    /* Libération mémoire des Threads */
+    free(vaisseau.drone_petit);
+    free(vaisseau.drone_moyen);
+    free(vaisseau.drone_gros);
+    free(client);
 }
