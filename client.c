@@ -3,7 +3,7 @@
 /* Crée les threads Client */
 void createClientThread(pthread_t client, int i)
 {
-    if(pthread_create(&client, NULL, fonc_client, (void*)i))
+    if(pthread_create(&client, NULL, fonc_client, (void*)(intptr_t)i))
         perror("Erreur création thread Client\n");
 }
 
